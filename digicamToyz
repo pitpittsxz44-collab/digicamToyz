@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Y2K Digicam Toy</title>
+    <style>
+        body {
+            background: #0f0f0f;
+            color: #ff8800; /* Classic "Digital Orange" */
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .camera-wrapper {
+            position: relative;
+            border: 8px solid #222;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #000;
+            line-height: 0;
+        }
+
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            transform: scaleX(-1); /* Mirror view */
+            transition: filter 0.2s;
+        }
+
+        /* THE GRAIN OVERLAY */
+        .grain {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.15;
+            background: url('https://media.giphy.com/media/oEI9uWUicG51C/giphy.gif'); /* Moving static noise */
+            mix-blend-mode: screen;
+        }
+
+        /* THE DATE STAMP */
+        #date-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 25px;
+            color: #ff8800;
+            font-size: 24px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+            pointer-events: none;
+            letter-spacing: 2px;
+        }
+
+        .ui-panel {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        button {
+            background: #222;
+            color: #ff8800;
+            border: 2px solid #ff8800;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #ff8800;
+            color: #000;
+        }
+
+        #filter-label { margin-bottom: 10px; font-size: 14px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+    <div id="filter-label">MODE: AUTO</div>
+
+    <div class="camera-wrapper">
+        <video id="webcam" autoplay playsinline></video>
+        <div class="grain"></div>
+        <div id="date-overlay"></div>
+        <canvas id="photoCanvas" style="display:none;"></canvas>
+    </div>
+
+    <div class="ui-panel">
+        <button onclick="nextFilter()">Cycle Filter</button>
+        <button onclick="takePhoto()">Capture</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('photoCanvas');
+        const dateDiv = document.getElementById('date-overlay');
+        const label = document.getElementById('filter-label');
+
+        // Setup the Date Stamp (e.g., '06 MAR 2026')
+        const now = new Date();
+        const options = { day: '2-digit', month: 'short', year: 'numeric' };
+        dateDiv.innerText = now.toLocaleDateString('en-GB', options).toUpperCase();
+
+        const filters = [
+            { name: "Standard", css: "contrast(1.1) saturate(1.2)" },
+            { name: "CCD Sensor", css: "contrast(1.4) brightness(1.1) saturate(1.8) sepia(0.1)" },
+            { name: "Night Vision", css: "hue-rotate(90deg) brightness(1.5) contrast(1.5) grayscale(1)" },
+            { name: "Y2K Glam", css: "brightness(1.3) contrast(0.9) saturate(1.5) blur(0.5px)" },
+            { name: "Lo-Fi B&W", css: "grayscale(1) contrast(1.8) brightness(1.2)" }
+        ];
+        
+        let currentIdx = 0;
+
+        async function start() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("Please enable webcam!");
+            }
+        }
+
+        function nextFilter() {
+            currentIdx = (currentIdx + 1) % filters.length;
+            video.style.filter = filters[currentIdx].css;
+            label.innerText = "MODE: " + filters[currentIdx].name.toUpperCase();
+        }
+
+        function takePhoto() {
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Apply filter to save
+            ctx.filter = filters[currentIdx].css;
+            
+            // Mirror image for saving
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Draw the Date Stamp onto the final image
+            ctx.scale(-1, 1); // Flip back for text
+            ctx.translate(-canvas.width, 0);
+            ctx.font = "bold 32px Courier New";
+            ctx.fillStyle = "#ff8800";
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 4;
+            // Position date in bottom right of saved file
+            ctx.fillText(dateDiv.innerText, canvas.width - 250, canvas.height - 40);
+
+            const link = document.createElement('a');
+            link.download = `DSC_00${Math.floor(Math.random()*99)}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        start();
+    </script>
+</body>
+</html>
